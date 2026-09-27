@@ -28,6 +28,14 @@ public class WebServer {
             while ((connection = listenSocket.accept()) != null) {
                 RequestHandler requestHandler = new RequestHandler(connection);
                 requestHandler.start();
+                /* LEARN:
+                Thread 클래스 내  private native void start0 메소드
+                native: "이 메소드의 구현은 자바 코드가 아니라 JVM 네이티브(C/C++) 코드에 있다"는 뜻. 하위 클래스가 구현하는 게 아니라, JNI를 통해 JVM 자체
+                requestHandler.start()        // Thread.start() (상속)
+                └─ start0()                   // native, JVM 내부 C++ 코드
+                     └─ OS 스레드 생성 (pthread_create / CreateThread)
+                          └─ JVM 내부에서 this.run() 콜백
+                               └─ RequestHandler.run()  ← 실제 비즈니스 로직 (RequestHandler.java:21) */
             }
         }
     }
