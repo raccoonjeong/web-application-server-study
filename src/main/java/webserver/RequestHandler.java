@@ -10,8 +10,12 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 import java.nio.file.Files;
+import java.util.Map;
+import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -30,20 +34,54 @@ public class RequestHandler extends Thread {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
 
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            String line;
             DataOutputStream dos = new DataOutputStream(out);
             byte[] body = null;
-            while ((line = br.readLine()) != null && !line.isEmpty()) {
-                System.out.println(line);
-                String[] arr = line.split(" ");
-                String method = arr[0];
-                String path = arr[1];
-                if ("GET".equals(method) && "/index.html".equals(path)) {
-                    body = Files.readAllBytes(new File("./webapp" + path).toPath());
-                    break;
-                }
-            }
 
+            String line = br.readLine();
+            String path = "";
+            String queryString = "";
+
+            String[] arr = line.split(" ");
+            String method = arr[0];
+
+            if ("GET".equals(method)) {
+                String paths = arr[1];
+                String[] split = paths.split("\\?");
+                path = split[0];
+
+                if (split.length > 1) {
+                    queryString = split[1];
+                }
+                Map<String, String> stringStringMap = HttpRequestUtils.parseQueryString(
+                    queryString);
+                body = Files.readAllBytes(new File("./webapp" + path).toPath());
+            }
+            if ("POST".equals(method)) {
+
+                int contentLength = 0;
+
+                while ((line = br.readLine()) != null) {
+                    System.out.println(line);
+                    if ("Content-Length".equals(line.split(":")[0])) {
+                        contentLength = Integer.parseInt(line.split(":")[1].trim());
+                    }
+                    if (line.isEmpty()) {
+                        break;
+                    }
+
+                }
+
+                String contentBody = IOUtils.readData(br, contentLength);
+                Map<String, String> stringStringMap = HttpRequestUtils.parseQueryString(
+                    contentBody);
+
+                User user = new User(stringStringMap);
+                System.out.println("@@@@@" + user);
+
+                  response302Header(dos);
+//            responseBody(dos, body);
+            return;
+            }
             if (body == null) {
                 body = "Hello World".getBytes();
             }
@@ -59,6 +97,17 @@ public class RequestHandler extends Thread {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302Header(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("Location: /index.html\r\n");
+            dos.writeBytes("Content-Length: " + 0 + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
