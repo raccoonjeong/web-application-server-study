@@ -20,9 +20,11 @@ import util.HttpRequestUtils;
 import util.IOUtils;
 
 public class RequestHandler extends Thread {
+
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
 
     private Socket connection;
+    private static final List<User> users = new ArrayList<>();
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
@@ -30,8 +32,9 @@ public class RequestHandler extends Thread {
 
     public void run() {
         log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),
-                connection.getPort());
-        List<User> users = new ArrayList<>();
+            connection.getPort());
+
+        System.out.println("리스트 상태:" + users);
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
@@ -64,14 +67,14 @@ public class RequestHandler extends Thread {
                 body = Files.readAllBytes(new File("./webapp" + path).toPath());
 
                 while ((line = br.readLine()) != null) {
-                    System.out.println("GET:::::"+line);
+                    System.out.println("GET:::::" + line);
                     if (line.isEmpty()) {
                         break;
                     }
                 }
             }
 
-            if ("POST".equals(method) && "/user/create".equals(path)) {
+            if ("POST".equals(method)) {
 
                 int contentLength = 0;
 
@@ -89,17 +92,30 @@ public class RequestHandler extends Thread {
                 Map<String, String> stringStringMap = HttpRequestUtils.parseQueryString(
                     contentBody);
 
-                User user = new User(stringStringMap);
-                System.out.println("@@@@@" + user);
-                users.add(user);
+                if ("/user/create".equals(path)) {
+                    User user = new User(stringStringMap);
+                    users.add(user);
+                    System.out.println("리스트에추가:"+users);
+                    response302Header(dos);
+                    return;
+                }
+
+                if ("/user/login".equals(path)) {
+                    User logined = new User(stringStringMap);
+                    User user = users.stream().filter(x -> x.getUserId().equals(logined.getUserId())
+                        && x.getPassword().equals(logined.getPassword())).findAny().orElse(null);
+                    if (user == null) {
+                        response200HeaderWithCookie(dos, "logined=false");
+                        return;
+                    }
+                    response200HeaderWithCookie(dos, "logined=true");
+                    return;
+                }
+
                 response302Header(dos);
                 return;
             }
 
-
-            if ("POST".equals(method) && "/user/login".equals(path)) {
-
-            }
             if (body == null) {
                 body = "Hello World".getBytes();
             }
@@ -115,6 +131,17 @@ public class RequestHandler extends Thread {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response200HeaderWithCookie(DataOutputStream dos, String cookieContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Set-Cookie: " + cookieContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
