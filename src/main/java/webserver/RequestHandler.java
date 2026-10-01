@@ -10,6 +10,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import model.User;
 import org.slf4j.Logger;
@@ -29,6 +31,7 @@ public class RequestHandler extends Thread {
     public void run() {
         log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),
                 connection.getPort());
+        List<User> users = new ArrayList<>();
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
@@ -43,20 +46,32 @@ public class RequestHandler extends Thread {
 
             String[] arr = line.split(" ");
             String method = arr[0];
+            String paths = "";
 
-            if ("GET".equals(method)) {
-                String paths = arr[1];
+            if (arr.length > 1) {
+                paths = arr[1];
                 String[] split = paths.split("\\?");
                 path = split[0];
-
                 if (split.length > 1) {
                     queryString = split[1];
                 }
+            }
+
+            if ("GET".equals(method)) {
+
                 Map<String, String> stringStringMap = HttpRequestUtils.parseQueryString(
                     queryString);
                 body = Files.readAllBytes(new File("./webapp" + path).toPath());
+
+                while ((line = br.readLine()) != null) {
+                    System.out.println("GET:::::"+line);
+                    if (line.isEmpty()) {
+                        break;
+                    }
+                }
             }
-            if ("POST".equals(method)) {
+
+            if ("POST".equals(method) && "/user/create".equals(path)) {
 
                 int contentLength = 0;
 
@@ -68,7 +83,6 @@ public class RequestHandler extends Thread {
                     if (line.isEmpty()) {
                         break;
                     }
-
                 }
 
                 String contentBody = IOUtils.readData(br, contentLength);
@@ -77,10 +91,14 @@ public class RequestHandler extends Thread {
 
                 User user = new User(stringStringMap);
                 System.out.println("@@@@@" + user);
+                users.add(user);
+                response302Header(dos);
+                return;
+            }
 
-                  response302Header(dos);
-//            responseBody(dos, body);
-            return;
+
+            if ("POST".equals(method) && "/user/login".equals(path)) {
+
             }
             if (body == null) {
                 body = "Hello World".getBytes();
