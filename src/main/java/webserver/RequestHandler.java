@@ -11,7 +11,11 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 import java.nio.file.Files;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,12 +67,50 @@ public class RequestHandler extends Thread {
 
                 Map<String, String> stringStringMap = HttpRequestUtils.parseQueryString(
                     queryString);
-                body = Files.readAllBytes(new File("./webapp" + path).toPath());
+                if ("".equals(path) || "/".equals(path)) {
+                    path = "/index.html";
+                }
 
+                String cookieValue = "";
                 while ((line = br.readLine()) != null) {
                     System.out.println("GET:::::" + line);
+                    if ("Cookie".equals(line.split(":")[0])) {
+                        cookieValue = line.split(":")[1].trim();
+                    }
                     if (line.isEmpty()) {
                         break;
+                    }
+                }
+                Map<String, String> cookieMap = HttpRequestUtils.parseCookies(
+                    cookieValue);
+
+                if ("/user/list".equals(path)) {
+                    if ("true".equals(cookieMap.get("logined"))) {
+                        StringBuilder sb = new StringBuilder();
+                        Collection<User> all = DataBase.findAll();
+                        Map<String, User> userMap = all.stream()
+                            .collect(Collectors.toMap(
+                                User::getUserId,
+                                user -> user
+                            ));
+
+                        for (User user : userMap.values()) {
+                            sb.append(
+                                "<div><p>아이디: " + user.getUserId() + "</p><p>이름: " + user.getName()
+                                    + "</p></div>");
+                        }
+                        body = sb.toString().getBytes();
+                    } else {
+                        response302Header(dos, "/user/login.html");
+                        return;
+                    }
+
+                } else {
+                    body = Files.readAllBytes(new File("./webapp" + path).toPath());
+                    if ("/css/bootstrap.min.css".equals(path) || "/css/styles.css".equals(path)) {
+                        response200HeaderWithCSS(dos);
+                        responseBody(dos, body);
+                        return;
                     }
                 }
             }
@@ -94,7 +136,7 @@ public class RequestHandler extends Thread {
                 if ("/user/create".equals(path)) {
                     User user = new User(stringStringMap);
                     DataBase.addUser(user);
-                    response302Header(dos);
+                    response302Header(dos, "/index.html");
                     return;
                 }
 
@@ -102,18 +144,19 @@ public class RequestHandler extends Thread {
                     User logined = new User(stringStringMap);
                     User userById = DataBase.findUserById(logined.getUserId());
 
-                    boolean isMatched = userById.getPassword().equals(logined.getPassword());
+                    boolean isMatched =
+                        userById != null && userById.getPassword().equals(logined.getPassword());
 
                     if (isMatched) {
-                        response200HeaderWithCookie(dos, "logined=true");
+                        response302HeaderWithCookie(dos, "/index.html", "logined=true");
                         return;
                     }
 
-                    response200HeaderWithCookie(dos, "logined=false");
+                    response302HeaderWithCookie(dos, "/user/login.html","logined=false");
                     return;
                 }
 
-                response302Header(dos);
+                response302Header(dos, "/index.html");
                 return;
             }
 
@@ -138,6 +181,16 @@ public class RequestHandler extends Thread {
         }
     }
 
+    private void response200HeaderWithCSS(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/css\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
     private void response200HeaderWithCookie(DataOutputStream dos, String cookieContent) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
@@ -149,10 +202,22 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void response302Header(DataOutputStream dos) {
+    private void response302HeaderWithCookie(DataOutputStream dos, String path, String cookieContent) {
         try {
             dos.writeBytes("HTTP/1.1 302 OK \r\n");
-            dos.writeBytes("Location: /index.html\r\n");
+            dos.writeBytes("Location: " + path + "\r\n");
+            dos.writeBytes("Content-Length: " + 0 + "\r\n");
+            dos.writeBytes("Set-Cookie: " + cookieContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302Header(DataOutputStream dos, String path) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("Location: " + path + "\r\n");
             dos.writeBytes("Content-Length: " + 0 + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
