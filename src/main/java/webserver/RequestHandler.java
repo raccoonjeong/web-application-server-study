@@ -1,5 +1,6 @@
 package webserver;
 
+import db.DataBase;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -10,8 +11,6 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import model.User;
 import org.slf4j.Logger;
@@ -24,7 +23,7 @@ public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
 
     private Socket connection;
-    private static final List<User> users = new ArrayList<>();
+//    private static final List<User> users = new ArrayList<>();
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
@@ -34,7 +33,7 @@ public class RequestHandler extends Thread {
         log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),
             connection.getPort());
 
-        System.out.println("리스트 상태:" + users);
+//        System.out.println("리스트 상태:" + users);
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
@@ -94,21 +93,23 @@ public class RequestHandler extends Thread {
 
                 if ("/user/create".equals(path)) {
                     User user = new User(stringStringMap);
-                    users.add(user);
-                    System.out.println("리스트에추가:"+users);
+                    DataBase.addUser(user);
                     response302Header(dos);
                     return;
                 }
 
                 if ("/user/login".equals(path)) {
                     User logined = new User(stringStringMap);
-                    User user = users.stream().filter(x -> x.getUserId().equals(logined.getUserId())
-                        && x.getPassword().equals(logined.getPassword())).findAny().orElse(null);
-                    if (user == null) {
-                        response200HeaderWithCookie(dos, "logined=false");
+                    User userById = DataBase.findUserById(logined.getUserId());
+
+                    boolean isMatched = userById.getPassword().equals(logined.getPassword());
+
+                    if (isMatched) {
+                        response200HeaderWithCookie(dos, "logined=true");
                         return;
                     }
-                    response200HeaderWithCookie(dos, "logined=true");
+
+                    response200HeaderWithCookie(dos, "logined=false");
                     return;
                 }
 
