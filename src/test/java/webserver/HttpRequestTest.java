@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import org.junit.Test;
+import util.HttpRequest;
 
 public class HttpRequestTest {
 
@@ -15,10 +16,24 @@ public class HttpRequestTest {
     public void request_GET() throws Exception {
         InputStream in = new FileInputStream(new File(testDirectory +
             "Http_GET.txt"));
-        util.HttpRequest request = new util.HttpRequest(in);
+        HttpRequest request = new HttpRequest(in);
         assertEquals("GET", request.getMethod());
         assertEquals("/user/create", request.getPath());
         assertEquals("keep-alive", request.getHeader("Connection"));
-        assertEquals("javajigi", request.getParameter("userid"));
+        assertEquals("javajigi", request.getParameter("userId"));
     }
+
+    @Test
+    public void request_POST() throws Exception {
+        InputStream in = new FileInputStream(new File(testDirectory +
+            "Http_POST.txt"));
+        HttpRequest request = new HttpRequest(in);
+
+        assertEquals("POST", request.getMethod());
+        assertEquals("/user/create", request.getPath());
+        assertEquals("keep-alive", request.getHeader("Connection"));
+        assertEquals("javajigi", request.getParameter("userId"));
+
+    }
+
 }
