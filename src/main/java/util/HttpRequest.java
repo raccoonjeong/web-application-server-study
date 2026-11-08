@@ -20,7 +20,7 @@ public class HttpRequest {
         readInput();
     }
 
-    private void readInput() throws IOException {
+    public void readInput() throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
         String line = br.readLine();
@@ -38,18 +38,30 @@ public class HttpRequest {
             System.out.println(split[1]);
             this.parameters = HttpRequestUtils.parseQueryString(split[1]);
         }
-        System.out.println(this.parameters.get("userId"));
+//        System.out.println(this.parameters.get("userId"));
 
         this.headers = new HashMap<>();
+        int contentLength = 0;
 
         while ((line = br.readLine()) != null) {
-            this.headers.put(line.split(":")[0], line.split(":")[1].trim()) ;
-
+            if (line.split(":").length > 1) {
+                this.headers.put(line.split(":")[0], line.split(":")[1].trim());
+                if ("Content-Length".equals(line.split(":")[0])) {
+                    contentLength = Integer.parseInt(line.split(":")[1].trim());
+                }
+            }
             if (line.isEmpty()) {
                 break;
             }
         }
 
+        if (contentLength > 0) {
+            String contentBody = IOUtils.readData(br, contentLength);
+            Map<String, String> stringStringMap = HttpRequestUtils.parseQueryString(
+                contentBody);
+
+            this.parameters = stringStringMap;
+        }
     }
 
     public String getMethod() {

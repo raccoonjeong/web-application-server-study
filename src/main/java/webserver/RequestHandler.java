@@ -47,7 +47,7 @@ public class RequestHandler extends Thread {
 
             HttpRequest httpRequest = new HttpRequest(in);
 
-
+            httpRequest.readInput();
 
 //            if ("GET".equals(method)) {
 //

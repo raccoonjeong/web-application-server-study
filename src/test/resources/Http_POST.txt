@@ -3,3 +3,6 @@ Host: localhost:8080
 Connection: keep-alive
 Content-Length: 46
 Content-Type: application/x-www-form-urlencode
+Accept: */*
+
+userId=javajigi&password=password&name=JaeSung
